@@ -1,0 +1,67 @@
+---
+title: "MSDS-6372-Project-2"
+author: "Garret Shankel, Chad Kwong, Ryan Herrin"
+date: "7/17/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Libs
+library(stringr)
+library(plotly)
+library(ggplot2)
+library(plyr) 
+library(dplyr)
+library(tidyr)
+```
+
+# Predicting if someone makes over 50k
+
+## Two Objectives of the project 
++ Objective 1: Display the ability to perform EDA and build a logisitc regression model. 
++ Objective 2:  With a simple logistic regression model as a baseline, perform additional competing \
+models to improve on prediction performance metrics.  Which metrics to compare models and evaluate \
+performance are up to you and your given data set.
+
+#### Import data
+After data is assigned and headers added, these data frames should not be modified to keep 
+integrity. Different versions should be made using them instead. 
+```{r}
+# Locations of data files. Extensions are different but all are in CSV format 
+adult_loc <- 'data/adult.data'
+adult_test_loc <- 'data/adult.test'
+# Read in data
+adult_data <- read.csv(adult_loc, sep=',', header = FALSE)
+adult_test_data <- read.csv(adult_test_loc, sep=',', header = FALSE) 
+
+# Define and set column names 
+adult_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 
+                 'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',
+                 'hours-per-week', 'native-country')
+
+colnames(adult_data) <- adult_names
+colnames(adult_test_data) <- adult_names
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
