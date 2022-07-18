@@ -1,0 +1,97 @@
+---
+title: "6372 Project 2"
+author: "Chad Kwong"
+date: '2022-07-15'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+```
+
+# Initial Data loading and approach on Missing values
+## Data load in and column manipulation
+```{r}
+#Combining provided Test and Train sets into one data set for custom training test splits
+salaryDataTrain = read.csv()
+salaryDataTest = read.csv(file.choose(), header = FALSE)
+salaryDataTest = salaryDataTest[-1,]
+colnames(salaryDataTrain) <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'money')
+colnames(salaryDataTest)<- colnames(salaryDataTrain)
+salaryData <- rbind(salaryDataTrain, salaryDataTest)
+#export dataset to new file
+write.csv(salaryData, file = "/Users/chadkwong/Desktop/CombinedData.csv")
+```
+```{r}
+salaryData = read.csv("/Users/chadkwong/Desktop/Project 2/Dataset/CombinedData.csv")
+str(salaryData)
+```
+
+
+```{r}
+#converting variables to factors, making sure that levels are equal, and changing ? to NA
+salaryData[salaryData==" ?"] = NA
+salaryData$money[salaryData$money==' <=50K.'] = ' <=50K'
+salaryData$money[salaryData$money==' >50K.'] = ' >50K'
+salaryData$age = as.numeric(salaryData$age)
+salaryData$workclass=as.factor(salaryData$workclass)
+salaryData$education=factor(salaryData$education)
+salaryData$marital_status=factor(salaryData$marital_status)
+salaryData$occupation=factor(salaryData$occupation)
+salaryData$relationship=factor(salaryData$relationship)
+salaryData$race=factor(salaryData$race)
+salaryData$sex=factor(salaryData$sex)
+salaryData$native_country=factor(salaryData$native_country)
+salaryData$money=factor(salaryData$money)
+salaryData = salaryData[,-1]
+```
+
+## Missing Value Investigation
+```{r}
+#Initial table of missing values
+table(is.na(salaryData))
+#Gathering all na values and creating an organizational dataframe to display where each missing value is
+#create data frame with 0 rows and 4 columns
+naCol <- data.frame(matrix(ncol = 5, nrow = 0))
+#provide column names
+colnames(naCol) <- c('varName', 'varType', 'varID#', 'naCount', 'PercentageNA')
+for(i in 1:ncol(salaryData)){
+  if(length(table(is.na(salaryData)))==2){
+    naCol[i,] = c("dummy","dummy",i,table(is.na(salaryData[,i]))[2],"dummy")
+  }
+}
+naCol = na.omit(naCol)
+naCol$`varID#` = as.integer(naCol$`varID#`)
+naCol$naCount = as.integer(naCol$naCount)
+naCol$PercentageNA = round(naCol$naCount/length(salaryData$age),4)*100
+for(i in 1:length(naCol$varName)){
+  naCol$varName[i] = colnames(salaryData)[naCol$`varID#`[i]]
+  naCol$varType[i] = typeof(salaryData[,naCol$`varID#`[i]])
+}
+naCol
+```
+
+```{r}
+data.frame(table(salaryData$workclass))
+data.frame(table(salaryData$occupation))
+data.frame(table(salaryData$native_country))
+```
+
+# Initial EDA
+Below is a plot of the percentage of each sex that makes above 50K salary. From the graph we can see a disparity between the two groups as Males seem to be almost three times as likely to make above 50K
+```{r}
+g2<-salaryData %>% group_by(sex,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+g2
+
+ggplot(g2[c(3,4),],aes(x=reorder(sex,-perc),y=perc,colour=sex))+
+  geom_bar(aes(fill=sex),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Sex")
+
+```
+
+```{r}
+
+```
