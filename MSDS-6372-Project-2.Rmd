@@ -61,7 +61,7 @@ apply_mods <- function(df) {
   delta_df <- df 
   
   # Replace all question marks with NA values 
-  delta_df[delta_df == " ?"] <- "NA"
+  delta_df[delta_df == " ?"] <- NA
   
   # There should only be two factors for money. Need to fix that. 
   delta_df[delta_df == " <=50K."] <- "<=50K"
@@ -96,10 +96,24 @@ str(adult_combined)
 
 #### EDA - R.H.
 ```{r, fig.show="hold", out.width="50%"}
-# Age
-ggplot(adult_combined, aes(age, colour=money)) + geom_density()
-```
+# Find the number of NA values per column
+colSums(is.na(adult_combined))
+#--------------------------------------
+# From Adult_Combined
+# workclass: 2,799 | 5.73%
+# occupation: 2,809 | 5.75%
+# native_country: 857 | 1.75%
+#--------------------------------------
 
+# Charts and graphs for initial looks 
+# age
+ggplot(adult_combined, aes(age, colour=money)) + geom_density()
+# workclass 
+ggplot(adult_combined, aes(x=workclass, y=nrow(adult_combined), fill=money)) + 
+  geom_col(position = "fill") + ylab("Percentage")
+```
++ In workclass there are two categories (Never-worked AND Without-pay). Never worked always has \
+a money class of <=50K. 
 
 
 
