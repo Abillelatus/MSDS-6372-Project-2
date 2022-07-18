@@ -36,15 +36,69 @@ adult_data <- read.csv(adult_loc, sep=',', header = FALSE)
 adult_test_data <- read.csv(adult_test_loc, sep=',', header = FALSE) 
 
 # Define and set column names 
-adult_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 
-                 'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',
-                 'hours-per-week', 'native-country')
+adult_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 
+                 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss',
+                 'hours_per_week', 'native_country', 'money')
 
 colnames(adult_data) <- adult_names
 colnames(adult_test_data) <- adult_names
 ```
 
+#### Data Delta and Cleaning 
+```{r}
+# Create new Data Frames.
+adult <- adult_data
+adult_test <- adult_test_data
 
+# Create one data set to make our own train/test split 
+adult_combined <- rbind(adult, adult_test)
+```
+
+Function to apply same changes accross all data frames
+```{r, include=FALSE}
+apply_mods <- function(df) {
+  # Function to apply all modifications to a data frame and return it back
+  delta_df <- df 
+  
+  # Replace all question marks with NA values 
+  delta_df[delta_df == " ?"] <- "NA"
+  
+  # There should only be two factors for money. Need to fix that. 
+  delta_df[delta_df == " <=50K."] <- "<=50K"
+  delta_df[delta_df == " >50K."] <- ">50K"
+  delta_df[delta_df == " <=50K"] <- "<=50K"
+  delta_df[delta_df == " >50K"] <- ">50K"
+  
+  # transform data type "chr" columns into "factor"
+  delta_df <- transform(delta_df, 
+                        workclass=as.factor(workclass),
+                        education_num=as.factor(education_num),
+                        marital_status=as.factor(marital_status),
+                        occupation=as.factor(occupation),
+                        relationship=as.factor(relationship),
+                        race=as.factor(race),
+                        sex=as.factor(sex),
+                        native_country=as.factor(native_country),
+                        money=as.factor(money))
+  
+  return(delta_df)
+}
+```
+
+Datasets to apply function too
+```{r}
+# Apply the mods funtion to the dataframes below 
+adult_combined <- apply_mods(adult_combined)
+
+# Print Summary of combined
+str(adult_combined)
+```
+
+#### EDA - R.H.
+```{r, fig.show="hold", out.width="50%"}
+# Age
+ggplot(adult_combined, aes(age, colour=money)) + geom_density()
+```
 
 
 
