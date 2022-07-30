@@ -28,8 +28,9 @@ library(tidyverse)
 #write.csv(salaryData, file = "/Users/chadkwong/Desktop/CombinedData.csv")
 
 ```
+
 ```{r}
-salaryData = read.csv("/Users/chadkwong/Desktop/Project 2/Dataset/CombinedData.csv")
+salaryData = read.csv("data/Dataset/CombinedData.csv")
 str(salaryData)
 ```
 
