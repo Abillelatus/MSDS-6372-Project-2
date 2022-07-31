@@ -499,4 +499,18 @@ print("Confusion matrix for Random Forest")
 rf_customConfInt
 print("Overall accuracy for Random Forest")
 sum(diag(rf_customConfInt))/sum(rf_customConfInt)
+
+# Get sensitivty and specificity 
+# Make DF to pull from 
+sens_spec_df <- as.data.frame(rf_customConfInt)
+rf_sensitivity <- sens_spec_df$Freq[1] / (sens_spec_df$Freq[1]+sens_spec_df$Freq[2])
+rf_specificity <- sens_spec_df$Freq[4] / (sens_spec_df$Freq[2]+sens_spec_df$Freq[4])
+rf_prevalence <- (sens_spec_df$Freq[1]+sens_spec_df$Freq[3])/(sens_spec_df$Freq[1] +
+                  sens_spec_df$Freq[2]+sens_spec_df$Freq[3]+sens_spec_df$Freq[4])
+
+print("Random Forest Sensitivity")
+rf_sensitivity
+
+print("Random Fored Specificity")
+rf_specificity
 ```
