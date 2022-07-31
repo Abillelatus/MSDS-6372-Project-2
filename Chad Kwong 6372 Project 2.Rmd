@@ -405,8 +405,8 @@ fit.pred.step<-predict(step.log,newdata=test,type="response")
 #Lets use the predicted probablities to classify the observations and make a final confusion matrix for the two models.  We can use it to calculate error metrics.
 #Lets use a cutoff of 0.5 to make the classification.
 cutoff<-0.5
-class.lasso<-factor(ifelse(fit.pred.lasso>cutoff,">50K","<=50K"),levels=c("<=50K",">50K"))
-class.step<-factor(ifelse(fit.pred.step>cutoff,">50K","<=50K"),levels=c("<=50K",">50K"))
+class.lasso<-factor(ifelse(fit.pred.lasso>cutoff," >50K"," <=50K"),levels=c(" <=50K"," >50K"))
+class.step<-factor(ifelse(fit.pred.step>cutoff," >50K", " <=50K"),levels=c(" <=50K", " >50K"))
 
 #Confusion Matrix for Lasso
 conf.lasso<-table(class.lasso,test$money)
@@ -472,7 +472,46 @@ abline(a=0, b= 1)
 ## Complex Model
 ### LDA
 ```{r}
-str(groupedVars)
-mylda <- lda(money ~ ., data = groupedVars[-3])
-prd <- as.numeric(predict(mylda, newdata = nd)$class)
+#str(groupedVars)
+#mylda <- lda(money ~ ., data = groupedVars[-3])
+#prd <- as.numeric(predict(mylda, newdata = nd)$class)
 ```
+
+
+### Random Forest Model 
+```{r}
+library(randomForest)
+# Create the formula used from prior models 
+rf_formula <- money~age + sex + educLevel + groupedHours + occupation + groupedRelationship
+alt_formula <- money~.
+
+rf_model_full <- randomForest(alt_formula, data=train, ntree=300)
+#rf_model_partial <- randomForest(rf_formula, data=train, ntree=300)
+
+rf_model_full # 13% error rate 
+#rf_model_partial # 17% error rate 
+
+# Create data frame for predictions from test dataset 
+rf_pred_df <- as.data.frame(predict(rf_model_full, test))
+# Add original test column to prediction dataframe 
+rf_pred_df$orig <- test$money
+
+# Create confusion matrix
+rf_customConfInt<-table(rf_pred_df$`predict(rf_model_full, test)`,rf_pred_df$orig)
+print("Confusion matrix for Random Forest")
+rf_customConfInt
+print("Overall accuracy for Random Forest")
+sum(diag(rf_customConfInt))/sum(rf_customConfInt)
+
+```
+
+
+
+
+
+
+
+
+
+
+
