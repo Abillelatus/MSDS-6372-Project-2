@@ -9,23 +9,28 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(dplyr)
+library(glmnet)
+library(MASS)
+library(tidyverse)
+library(randomForest)
 ```
 
 # Initial Data loading and approach on Missing values
-## Data load in and column manipulation
+## Initial Data load in and column manipulation
 ```{r}
 #Combining provided Test and Train sets into one data set for custom training test splits
-salaryDataTrain = read.csv()
-salaryDataTest = read.csv(file.choose(), header = FALSE)
-salaryDataTest = salaryDataTest[-1,]
-colnames(salaryDataTrain) <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'money')
-colnames(salaryDataTest)<- colnames(salaryDataTrain)
-salaryData <- rbind(salaryDataTrain, salaryDataTest)
-#export dataset to new file
-write.csv(salaryData, file = "/Users/chadkwong/Desktop/CombinedData.csv")
+#salaryDataTrain = read.csv()
+#salaryDataTest = read.csv(file.choose(), header = FALSE)
+#salaryDataTest = salaryDataTest[-1,]
+#colnames(salaryDataTrain) <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'money')
+#colnames(salaryDataTest)<- colnames(salaryDataTrain)
+#salaryData <- rbind(salaryDataTrain, salaryDataTest)
+# export dataset to new file
+#write.csv(salaryData, file = "/Users/chadkwong/Desktop/CombinedData.csv")
+
 ```
 ```{r}
-salaryData = read.csv("/Users/chadkwong/Desktop/Project 2/Dataset/CombinedData.csv")
+salaryData = read.csv("data/Dataset/CombinedData.csv")
 str(salaryData)
 ```
 
@@ -74,24 +79,424 @@ naCol
 ```
 
 ```{r}
-data.frame(table(salaryData$workclass))
-data.frame(table(salaryData$occupation))
-data.frame(table(salaryData$native_country))
+missingWorkClass <- salaryData[is.na(salaryData$workclass)==TRUE,]
+missingWorkClass
+missingOccupation <- salaryData[is.na(salaryData$occupation)==TRUE,]
+missingOccupation
+missingNativeCountry <- salaryData[is.na(salaryData$native_country)==TRUE,]
+missingNativeCountry
+missingValues <- inner_join(missingWorkClass, missingOccupation, by = "fnlwgt")
+missingValues
+missingValues <- inner_join(missingValues, missingNativeCountry, by = "fnlwgt")
+missingValues
+```
+
+removing missing values
+```{r}
+salaryData = na.omit(salaryData)
+length(salaryData$money)
 ```
 
 # Initial EDA
+
+Below is a basic histogram of the response variable, money
+```{r}
+hist <- function(variable1, variable2) {
+  graph <- salaryData %>% ggplot(aes(x = variable1, fill = variable2)) + geom_bar() +facet_wrap(variable2)
+  return(graph)
+}
+```
+
+### Hours Per Week
+```{r}
+hist(salaryData$hours_per_week, salaryData$money)
+
+#Creating a column for grouped hours per week: 0= less than 40 hours, 1 = more than 40 hours
+cbind(salaryData, "groupedHours")
+salaryData$groupedHours= "<40"
+salaryData$groupedHours[salaryData$hours_per_week> 40] = ">40"
+salaryData$groupedHours[salaryData$hours_per_week==40] = "=40"
+salaryData$groupedHours = as.factor(salaryData$groupedHours)
+
+hours<-salaryData %>% group_by(groupedHours,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+hours[hours$money==" >50K",]
+Graph <- ggplot(hours[hours$money==" >50K",],aes(x=reorder(groupedHours,-perc),y=perc,colour=groupedHours))+
+  geom_bar(aes(fill=groupedHours),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Hours Per Week")+
+  ylim(0,1)
+Graph
+```
+
+### Sex
 Below is a plot of the percentage of each sex that makes above 50K salary. From the graph we can see a disparity between the two groups as Males seem to be almost three times as likely to make above 50K
 ```{r}
-g2<-salaryData %>% group_by(sex,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
-g2
 
-ggplot(g2[c(3,4),],aes(x=reorder(sex,-perc),y=perc,colour=sex))+
+g2<-salaryData %>% group_by(sex,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+  
+graph <- ggplot(g2[c(3,4),],aes(x=reorder(sex,-perc),y=perc,colour=sex))+
   geom_bar(aes(fill=sex),show.legend=T,stat="identity")+
   ylab("% of Population Making Above 50K")+
-  xlab("Sex")
+  xlab("Sex")+
+  ylim(0,1)
+graph
+```
+### Education
+The graph below breaks down the percentage of populations per education group that make above 50K salary. it also divides the education variable into 3 levels: 1 for no HS Grad, 2 for up to Bachelor grad, and 3 for beyond bachelors
+```{r}
+#Dividing Education into groups
+cbind(salaryData, "educLevel")
+salaryData$educLevel[salaryData$education==" Preschool" | 
+                        salaryData$education==" 1st-4th" | 
+                        salaryData$education==" 5th-6th" | 
+                        salaryData$education==" 7th-8th" | 
+                        salaryData$education==" 9th" | 
+                        salaryData$education==" 10th" | 
+                        salaryData$education==" 11th" | 
+                        salaryData$education==" 12th"] = "<HS"
 
+salaryData$educLevel[salaryData$education==" HS-grad" | 
+                        salaryData$education==" Assoc-acdm" | 
+                        salaryData$education==" Assoc-voc" | 
+                        salaryData$education==" Some-college" | 
+                        salaryData$education==" Bachelors"] = "HS-Bachelors"
+
+salaryData$educLevel[salaryData$education==" Masters" | 
+                        salaryData$education==" Prof-school" | 
+                        salaryData$education==" Doctorate" ] = "Post-Bachelors"
+
+salaryData$educLevel = as.factor(salaryData$educLevel)
+
+#Education analysis before grouping
+educ<-salaryData %>% group_by(education,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+educ[educ$money==" >50K",]
+graph <- ggplot(educ[educ$money==" >50K",],aes(x=reorder(education,-perc),y=perc,colour=education))+
+  geom_bar(aes(fill=education),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Education Level")+
+  ylim(0,1)
+graph
+
+#Education analysis AFTER grouping
+groupEduc<-salaryData %>% group_by(educLevel,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+groupEduc[groupEduc$money==" >50K",]
+groupGraph <- ggplot(groupEduc[groupEduc$money==" >50K",],aes(x=reorder(educLevel,-perc),y=perc,colour=educLevel))+
+  geom_bar(aes(fill=educLevel),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Education Level (Grouped)")+
+  ylim(0,1)
+groupGraph
+```
+### Age
+Age histogram
+```{r}
+hist(salaryData$age, salaryData$money)
+```
+### country
+```{r}
+g2<-salaryData %>% group_by(native_country,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+g2
+graph <- ggplot(g2[g2$money==" >50K",],aes(x=reorder(native_country,-perc),y=perc,colour=native_country))+
+  geom_bar(aes(fill=native_country),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Native Country")+
+  ylim(0,1)
+graph
+```
+### Race
+```{r}
+raceData<-salaryData %>% group_by(race,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+raceData[raceData$money==" >50K",]
+raceGraph <- ggplot(raceData[raceData$money==" >50K",],aes(x=reorder(race,-perc),y=perc,colour=race))+
+  geom_bar(aes(fill=race),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Race")+
+  ylim(0,1)
+raceGraph
+```
+From the plot above, there is evidence to suggest that we can group Asian/Pac-Islander and White together as one and combine the other 3 groups into a second
+```{r}
+#0 represents other races, 1 represents asian/pac-islander/white
+cbind(salaryData, "groupedRace")
+salaryData$groupedRace = "Other"
+salaryData$groupedRace[salaryData$race==" Asian-Pac-Islander" | salaryData$race==" White"] = "Asian/PacIsland/White"
+salaryData$groupedRace = as.factor(salaryData$groupedRace)
+
+raceData<-salaryData %>% group_by(groupedRace,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+raceData[raceData$money==" >50K",]
+raceGraph <- ggplot(raceData[raceData$money==" >50K",],aes(x=reorder(groupedRace,-perc),y=perc,colour=groupedRace))+
+  geom_bar(aes(fill=groupedRace),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Race")+
+  ylim(0,1)
+raceGraph
+```
+
+Capital gain plot: Definitely shows signs of a relationship between capital gain and making above 50K
+```{r}
+ggplot(data=salaryData, aes(x = fnlwgt, y = capital_gain, col=money))+geom_point()
+```
+
+###Marriage
+```{r}
+maritalStatus<-salaryData %>% group_by(marital_status,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+maritalStatus[maritalStatus$money==" >50K",]
+Graph <- ggplot(maritalStatus[maritalStatus$money==" >50K",],aes(x=reorder(marital_status,-perc),y=perc,colour=marital_status))+
+  geom_bar(aes(fill=marital_status),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Education Level (Grouped)")+
+  ylim(0,1)
+Graph
+```
+We can separate marriage status out into 2 groups: active marriage and non-active
+
+```{r}
+#Creating a column for grouped marital status: 0=Not married/non-active marriage/divorce, 1 = actively married
+cbind(salaryData, "groupedMarital")
+salaryData$groupedMarital= "Other"
+salaryData$groupedMarital[salaryData$marital_status==" Married-civ-spouse"|salaryData$marital_status==" Married-AF-spouse"] = "Actively Married"
+salaryData$groupedMarital = as.factor(salaryData$groupedMarital)
+
+maritalStatus<-salaryData %>% group_by(groupedMarital,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+maritalStatus[maritalStatus$money==" >50K",]
+Graph <- ggplot(maritalStatus[maritalStatus$money==" >50K",],aes(x=reorder(groupedMarital,-perc),y=perc,colour=groupedMarital))+
+  geom_bar(aes(fill=groupedMarital),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Marital Status")+
+  ylim(0,1)
+Graph
 ```
 
 ```{r}
+g2<-salaryData %>% group_by(relationship,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+  
+graph <- ggplot(g2[g2$money==" >50K",],aes(x=reorder(relationship,-perc),y=perc,colour=relationship))+
+  geom_bar(aes(fill=relationship),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Sex")+
+  ylim(0,1)
+graph
+```
 
+```{r}
+#Creating a column for grouped relationship status: 0=other, 1 = married
+cbind(salaryData, "groupedRelationsip")
+salaryData$groupedRelationship= "Other"
+salaryData$groupedRelationship[salaryData$relationship==" Wife"|salaryData$relationship==" Husband"] = "Married"
+salaryData$groupedRelationship = as.factor(salaryData$groupedRelationship)
+
+relation<-salaryData %>% group_by(groupedRelationship,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+relation[relation$money==" >50K",]
+Graph <- ggplot(relation[relation$money==" >50K",],aes(x=reorder(groupedRelationship,-perc),y=perc,colour=groupedRelationship))+
+  geom_bar(aes(fill=groupedRelationship),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Marital Status")+
+  ylim(0,1)
+Graph
+```
+
+### Work Class
+```{r}
+work<-salaryData %>% group_by(workclass,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+work[work$money==" >50K",]
+Graph <- ggplot(work[work$money==" >50K",],aes(x=reorder(workclass,-perc),y=perc,colour=workclass))+
+  geom_bar(aes(fill=workclass),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Work Class (Grouped)")
+Graph
+```
+a majority of self employed incorporations make above 50k a year
+
+### Occupation
+```{r}
+occ<-salaryData %>% group_by(occupation,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
+occ[occ$money==" >50K",]
+Graph <- ggplot(occ[occ$money==" >50K",],aes(x=reorder(occupation,-perc),y=perc,colour=occupation))+
+  geom_bar(aes(fill=occupation),show.legend=T,stat="identity")+
+  ylab("% of Population Making Above 50K")+
+  xlab("Education Level (Grouped)")+
+  ylim(0,1)
+Graph
+```
+
+### Colinearitye
+Creating correlation plots for all continuous variables while also including the response variable
+```{r}
+continuousVar = salaryData[,c(1,3,5,11,12,13)]
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- abs(cor(x, y))
+    txt <- format(c(r, 0.123456789), digits = digits)[1]
+    txt <- paste0(prefix, txt)
+    if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+pairs(continuousVar, lower.panel = panel.smooth, upper.panel = panel.cor,
+      gap=0, row1attop=FALSE)
+```
+
+From the plot above, we can see that there are no concerns for colinearity between any of the continuous variables.
+
+### Final Data Reduction
+```{r}
+colnames(salaryData)
+groupedVarsWithCountry = salaryData[,c(15,1,2,3,5,7,10,11,12,16,17,18,19,20,14)]
+groupedVars = salaryData[,c(15,1,2,3,5,7,10,11,12,16,17,18,19,20)]
+head(groupedVars)
+```
+
+# Objective 1
+## Logistic Model Building
+### Data Split
+Train Test Split using dataset containing reduced factor levels
+```{r}
+set.seed(77)
+split = .85
+index<-sample(1:dim(groupedVars)[1],round(split * dim(groupedVars)[1]))
+test<-groupedVars[-index,]
+train<-groupedVars[index,]
+str(train)
+```
+
+### Feature selection on full model
+running lasso variable selection
+```{r}
+dat.train.x <- model.matrix(money~.,train)
+dat.train.y<-train[,1]
+cvfit <- cv.glmnet(dat.train.x, dat.train.y, family = "binomial", type.measure = "class", nlambda = 1000)
+plot(cvfit)
+coef(cvfit, s = "lambda.min")
+#CV misclassification error rate
+print("CV Error Rate:")
+cvfit$cvm[which(cvfit$lambda==cvfit$lambda.min)]
+
+#Optimal penalty
+print("Penalty Value:")
+cvfit$lambda.min
+
+#builiding final lasso model
+finalmodel<-glmnet(dat.train.x, dat.train.y, family = "binomial",lambda=cvfit$lambda.min)
+```
+
+stepwise selection
+```{r}
+full.log<-glm(money~.,family="binomial",data=train)
+step.log<-full.log %>% stepAIC(trace=FALSE)
+```
+backwards selection
+```{r}
+back.log <- full.log %>% stepAIC(trace=FALSE, direction = "backward")
+summary(back.log)
+```
+from the breakdown of the parameters above, we can see that the following variables do not have much significance to the model: Capital Gain, Capital Loss, FnlWgt. We can also see that occupation has a lower percentage of levels that are statistically insignificant when compared with the Work Class variable.
+
+```{r}
+dat.test.x<-model.matrix(money~.,test)
+fit.pred.lasso <- predict(finalmodel, newx = dat.test.x, type = "response")
+
+test$money[1:15]
+fit.pred.lasso[1:15]
+
+#Making predictions for stepwise as well for later
+fit.pred.step<-predict(step.log,newdata=test,type="response")
+```
+
+```{r}
+#Lets use the predicted probablities to classify the observations and make a final confusion matrix for the two models.  We can use it to calculate error metrics.
+#Lets use a cutoff of 0.5 to make the classification.
+cutoff<-0.5
+class.lasso<-factor(ifelse(fit.pred.lasso>cutoff,">50K","<=50K"),levels=c("<=50K",">50K"))
+class.step<-factor(ifelse(fit.pred.step>cutoff,">50K","<=50K"),levels=c("<=50K",">50K"))
+
+#Confusion Matrix for Lasso
+conf.lasso<-table(class.lasso,test$money)
+print("Confusion matrix for LASSO")
+conf.lasso
+
+conf.step<-table(class.step,test$money)
+print("Confusion matrix for Stepwise")
+conf.step
+```
+
+```{r}
+#Accuracy of LASSO and Stepwise
+print("Overall accuracy for LASSO and Stepwise respectively")
+sum(diag(conf.lasso))/sum(conf.lasso)
+sum(diag(conf.step))/sum(conf.step)
+```
+
+```{r}
+library(ROCR)
+results.lasso<-prediction(fit.pred.lasso, test$money,label.ordering=c(" <=50K"," >50K"))
+roc.lasso = performance(results.lasso, measure = "tpr", x.measure = "fpr")
+plot(roc.lasso,colorize = TRUE)
+abline(a=0, b= 1)
+```
+### Final Model
+```{r}
+#Creating X and Y variables within model
+trainX <- model.matrix(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship,train)
+trainY<-train[,1]
+
+#Creating model with LASSO
+model<-glmnet(trainX, trainY, family = "binomial",lambda=cvfit$lambda.min)
+testX<-model.matrix(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship ,test)
+#Creating logistic regression model with GLM to obtain confidence intervals
+model2 = glm(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship, family="binomial",data=train)
+summary(model2)
+#printing out coefficient values
+coef(model, s = "lambda.min")
+confint(model2)
+
+#Doing Predictions
+predictions <- predict(model, newx = testX, type = "response")
+cutoff<-0.5
+customModel<-factor(ifelse(predictions>cutoff,">50K","<=50K"),levels=c("<=50K",">50K"))
+
+#Confusion Matrix
+customConfMat<-table(customModel,test$money)
+print("Confusion matrix for Custom Model")
+customConfMat
+
+#Accuracy of custom model
+print("Overall accuracy for custom model")
+sum(diag(customConfInt))/sum(customConfInt)
+results<-prediction(predictions, test$money,label.ordering=c(" <=50K"," >50K"))
+
+#ROC Curve
+roc = performance(results, measure = "tpr", x.measure = "fpr")
+plot(roc,colorize = TRUE)
+abline(a=0, b= 1)
+```
+# Objective 2
+## Complex Model
+### LDA
+
+```{r}
+str(groupedVars)
+mylda <- lda(money ~ ., data = groupedVars[-3])
+prd <- as.numeric(predict(mylda, newdata = nd)$class)
+```
+
+### Random Forest Model 
+```{r}
+# Create the formula used from prior models 
+rf_formula <- money~age + sex + educLevel + groupedHours + occupation + groupedRelationship
+alt_formula <- money~.
+rf_model_full <- randomForest(alt_formula, data=train, ntree=300)
+#rf_model_partial <- randomForest(rf_formula, data=train, ntree=300)
+rf_model_full # 13% error rate 
+#rf_model_partial # 17% error rate 
+# Create data frame for predictions from test dataset 
+rf_pred_df <- as.data.frame(predict(rf_model_full, test))
+# Add original test column to prediction dataframe 
+rf_pred_df$orig <- test$money
+# Create confusion matrix
+rf_customConfInt<-table(rf_pred_df$`predict(rf_model_full, test)`,rf_pred_df$orig)
+print("Confusion matrix for Random Forest")
+rf_customConfInt
+print("Overall accuracy for Random Forest")
+sum(diag(rf_customConfInt))/sum(rf_customConfInt)
 ```
