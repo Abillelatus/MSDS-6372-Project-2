@@ -462,8 +462,22 @@ customConfMat
 
 #Accuracy of custom model
 print("Overall accuracy for custom model")
-sum(diag(customConfInt))/sum(customConfInt)
+sum(diag(customConfMat))/sum(customConfMat)
 results<-prediction(predictions, test$money,label.ordering=c(" <=50K"," >50K"))
+
+# Get sensitivty and specificity 
+# Make DF to pull from 
+sens_spec_df <- as.data.frame(customConfMat)
+rf_sensitivity <- sens_spec_df$Freq[1] / (sens_spec_df$Freq[1]+sens_spec_df$Freq[2])
+rf_specificity <- sens_spec_df$Freq[4] / (sens_spec_df$Freq[2]+sens_spec_df$Freq[4])
+rf_prevalence <- (sens_spec_df$Freq[1]+sens_spec_df$Freq[3])/(sens_spec_df$Freq[1] +
+                  sens_spec_df$Freq[2]+sens_spec_df$Freq[3]+sens_spec_df$Freq[4])
+
+print("Final Model Sensitivity")
+rf_sensitivity
+
+print("Final Model Specificity")
+rf_specificity
 
 #ROC Curve
 roc = performance(results, measure = "tpr", x.measure = "fpr")
@@ -475,9 +489,23 @@ abline(a=0, b= 1)
 ### LDA
 
 ```{r}
-str(groupedVars)
-mylda <- lda(money ~ ., data = groupedVars[-3])
-prd <- as.numeric(predict(mylda, newdata = nd)$class)
+# construct the LDA model
+ldaData = salaryData[,c(1,3,5,11,12,13,15)]
+mylda <- lda(money ~ . , data = ldaData)
+
+# draw discrimination line
+np <- 300
+nd.x <- seq(from = min(ldaData$age), to = max(ldaData$fnlwgt), length.out = np)
+nd.y <- seq(from = min(ldaData$age), to = max(ldaData$fnlwgt), length.out = np)
+nd <- expand.grid(X1 = nd.x, X2 = nd.y)
+
+#prd <- as.numeric(predict(mylda, newdata = nd)$class)
+
+#plot(full[, 1:2], col = full$Response, main="Shift in X2")
+#points(mylda$means, pch = "+", cex = 2, col = c("black", "red"))
+#contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
+#        levels = c(1, 2), add = TRUE, drawlabels = FALSE)
+
 ```
 
 ### Random Forest Model 
