@@ -550,7 +550,7 @@ print("Overall accuracy for LDA")
 sum(diag(lda_customConfInt))/sum(lda_customConfInt)
 
 # Get sensitivty and specificity 
-lda_sens_spec_df <- as.data.frame(rf_customConfInt)
+lda_sens_spec_df <- as.data.frame(lda_customConfInt)
 lda_sensitivity <- lda_sens_spec_df$Freq[1] / (lda_sens_spec_df$Freq[1]+lda_sens_spec_df$Freq[2])
 lda_specificity <- lda_sens_spec_df$Freq[4] / (lda_sens_spec_df$Freq[2]+lda_sens_spec_df$Freq[4])
 lda_prevalence <- (lda_sens_spec_df$Freq[1]+lda_sens_spec_df$Freq[3])/(lda_sens_spec_df$Freq[1] +
