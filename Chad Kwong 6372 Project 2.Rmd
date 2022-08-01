@@ -534,6 +534,33 @@ nd <- expand.grid(X1 = nd.x, X2 = nd.y)
 #contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
 #        levels = c(1, 2), add = TRUE, drawlabels = FALSE)
 
+# Create predictions from LDA model
+lda_pred <- as.data.frame(predict(mylda, test)$class)
+# Rename column to make it easier to read
+colnames(lda_pred) <- c("LDA-Predictions")
+# Add the original test answers to the LDA prediction Dataframe 
+lda_pred$orig <- test$money
+
+# Create confusion matrix 
+lda_customConfInt<-table(lda_pred$`LDA-Predictions`, lda_pred$orig)
+print("Confusion matrix for LDA")
+lda_customConfInt
+print("Overall accuracy for LDA")
+sum(diag(lda_customConfInt))/sum(lda_customConfInt)
+
+# Get sensitivty and specificity 
+lda_sens_spec_df <- as.data.frame(rf_customConfInt)
+lda_sensitivity <- lda_sens_spec_df$Freq[1] / (lda_sens_spec_df$Freq[1]+lda_sens_spec_df$Freq[2])
+lda_specificity <- lda_sens_spec_df$Freq[4] / (lda_sens_spec_df$Freq[2]+lda_sens_spec_df$Freq[4])
+lda_prevalence <- (lda_sens_spec_df$Freq[1]+lda_sens_spec_df$Freq[3])/(lda_sens_spec_df$Freq[1] +
+                  lda_sens_spec_df$Freq[2]+lda_sens_spec_df$Freq[3]+lda_sens_spec_df$Freq[4])
+
+print("LDA Sensitivity")
+lda_sensitivity
+
+print("LDA Specificity")
+lda_specificity
+
 ```
 
 ### Random Forest Model 
