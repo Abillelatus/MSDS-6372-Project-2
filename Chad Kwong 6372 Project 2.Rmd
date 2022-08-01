@@ -13,6 +13,7 @@ library(glmnet)
 library(MASS)
 library(tidyverse)
 library(randomForest)
+library(ROCR)
 ```
 
 # Initial Data loading and approach on Missing values
@@ -319,7 +320,7 @@ Graph <- ggplot(occ[occ$money==" >50K",],aes(x=reorder(occupation,-perc),y=perc,
 Graph
 ```
 
-### Colinearitye
+### Colinearity
 Creating correlation plots for all continuous variables while also including the response variable
 ```{r}
 continuousVar = salaryData[,c(1,3,5,11,12,13)]
@@ -384,6 +385,7 @@ stepwise selection
 ```{r}
 full.log<-glm(money~.,family="binomial",data=train)
 step.log<-full.log %>% stepAIC(trace=FALSE)
+summary(step.log)
 ```
 backwards selection
 ```{r}
@@ -428,7 +430,6 @@ sum(diag(conf.step))/sum(conf.step)
 ```
 
 ```{r}
-library(ROCR)
 results.lasso<-prediction(fit.pred.lasso, test$money,label.ordering=c(" <=50K"," >50K"))
 roc.lasso = performance(results.lasso, measure = "tpr", x.measure = "fpr")
 plot(roc.lasso,colorize = TRUE)
