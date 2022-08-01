@@ -565,6 +565,92 @@ lda_specificity
 
 ```
 
+### Complex logistic regression model
+
+```{r}
+colnames(salaryData)
+groupedVarsWithCountry2 = salaryData[,c(15,1,2,3,5,7,10,11,12,16,17,18,19,20,14)]
+groupedVars2 = salaryData[,c(15,1,2,3,5,7,9,10,11,12,13,16,17,18,19,20)]
+head(groupedVars2)
+
+set.seed(77)
+split = .85
+index2<-sample(1:dim(groupedVars2)[1],round(split * dim(groupedVars2)[1]))
+test2<-groupedVars2[-index2,]
+train2<-groupedVars2[index2,]
+str(train2)
+
+#Creating X and Y variables within model
+trainX2 <- model.matrix(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship + race,train2)
+trainY2<-train2[,1]
+#Creating model with LASSO
+model<-glmnet(trainX2, trainY2, family = "binomial",lambda=cvfit$lambda.min)
+testX<-model.matrix(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship + race,test2)
+#Creating logistic regression model with GLM to obtain confidence intervals
+model3 = glm(money~log(age) + sex + educLevel + groupedHours + occupation + groupedRelationship * race, family="binomial",data=train2)
+```
+
+printing out coefficient values and summary of non-lasso model
+
+```{r}
+summary(model3)
+#printing out coefficient values
+coef(model3, s = "lambda.min")
+```
+printing confidence intervals of logistic regression model
+```{r}
+confint.default(model3)
+```
+
+```{r}
+#Doing Predictions
+predictions <- predict(model3, newdata = test2, type = "response")
+cutoff<-0.5
+customModel<-factor(ifelse(predictions>cutoff,">50K","<=50K"),levels=c("<=50K",">50K"))
+#Confusion Matrix
+customConfMat<-table(customModel,test2$money)
+print("Confusion matrix for Custom Model")
+customConfMat
+#Accuracy of custom model
+print("Overall accuracy for custom model")
+sum(diag(customConfMat))/sum(customConfMat)
+results<-prediction(predictions, test2$money,label.ordering=c(" <=50K"," >50K"))
+# Get sensitivty and specificity 
+# Make DF to pull from 
+sens_spec_df <- as.data.frame(customConfMat)
+rf_sensitivity <- sens_spec_df$Freq[1] / (sens_spec_df$Freq[1]+sens_spec_df$Freq[2])
+rf_specificity <- sens_spec_df$Freq[4] / (sens_spec_df$Freq[2]+sens_spec_df$Freq[4])
+rf_prevalence <- (sens_spec_df$Freq[1]+sens_spec_df$Freq[3])/(sens_spec_df$Freq[1] +
+                  sens_spec_df$Freq[2]+sens_spec_df$Freq[3]+sens_spec_df$Freq[4])
+print("Final Model Sensitivity")
+rf_sensitivity
+print("Final Model Specificity")
+rf_specificity
+```
+Cook's Distance
+```{r}
+# Cooks D Analysis
+cooksd <- cooks.distance(model3)
+# Plot the Cook's Distance using the traditional 4/n criterion
+sample_size <- nrow(groupedVars2)
+plot(cooksd, pch=".", cex=2, main="Cook's Distance Obs")  # plot cook's distance
+abline(h = 4/sample_size, col="red")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4/sample_size, names(cooksd),""), col="red")  # add labels
+par(mfrow=c(2,2))
+plot(model3)
+```
+ROC Curve and AUC
+```{r}
+#ROC Curve
+roc = performance(results, measure = "tpr", x.measure = "fpr")
+plot(roc,colorize = TRUE)
+abline(a=0, b= 1)
+
+#AUC
+auc = performance(results, measure = "auc")
+print(auc@y.values)
+```
+
 ### Random Forest Model 
 ```{r}
 # Create the formula used from prior models 
