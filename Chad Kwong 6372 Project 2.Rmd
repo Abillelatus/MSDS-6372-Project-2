@@ -343,7 +343,7 @@ From the plot above, we can see that there are no concerns for colinearity betwe
 ```{r}
 colnames(salaryData)
 groupedVarsWithCountry = salaryData[,c(15,1,2,3,5,7,10,11,12,16,17,18,19,20,14)]
-groupedVars = salaryData[,c(15,1,2,3,5,7,10,11,12,16,17,18,19,20)]
+groupedVars = salaryData[,c(15,1,2,3,5,7,10,11,12,13,16,17,18,19,20)]
 head(groupedVars)
 ```
 
@@ -435,6 +435,7 @@ plot(roc.lasso,colorize = TRUE)
 abline(a=0, b= 1)
 ```
 ### Final Model
+model construction
 ```{r}
 #Creating X and Y variables within model
 trainX <- model.matrix(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship,train)
@@ -445,11 +446,22 @@ model<-glmnet(trainX, trainY, family = "binomial",lambda=cvfit$lambda.min)
 testX<-model.matrix(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship ,test)
 #Creating logistic regression model with GLM to obtain confidence intervals
 model2 = glm(money~age + sex + educLevel + groupedHours + occupation + groupedRelationship, family="binomial",data=train)
+```
+
+printing out coefficient values and summary of non-lasso model
+```{r}
 summary(model2)
 #printing out coefficient values
 coef(model, s = "lambda.min")
-confint(model2)
+```
 
+printing confidence intervals of logistic regression model
+```{r}
+confint.default(model2)
+```
+
+printing Confusion Matrix statistics
+```{r}
 #Doing Predictions
 predictions <- predict(model, newx = testX, type = "response")
 cutoff<-0.5
@@ -478,7 +490,23 @@ rf_sensitivity
 
 print("Final Model Specificity")
 rf_specificity
+```
 
+Cook's Distance
+```{r}
+# Cooks D Analysis
+cooksd <- cooks.distance(model2)
+# Plot the Cook's Distance using the traditional 4/n criterion
+sample_size <- nrow(groupedVars)
+plot(cooksd, pch=".", cex=2, main="Cook's Distance Obs")  # plot cook's distance
+abline(h = 4/sample_size, col="red")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4/sample_size, names(cooksd),""), col="red")  # add labels
+
+par(mfrow=c(2,2))
+plot(model)
+```
+ROC Curve
+```{r}
 #ROC Curve
 roc = performance(results, measure = "tpr", x.measure = "fpr")
 plot(roc,colorize = TRUE)
