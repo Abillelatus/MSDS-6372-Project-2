@@ -110,7 +110,6 @@ hist <- function(variable1, variable2) {
 
 ### Hours Per Week
 ```{r}
-hist(salaryData$hours_per_week, salaryData$money)
 
 #Creating a column for grouped hours per week: 0= less than 40 hours, 1 = more than 40 hours
 cbind(salaryData, "groupedHours")
@@ -268,13 +267,14 @@ Graph <- ggplot(maritalStatus[maritalStatus$money==" >50K",],aes(x=reorder(group
 Graph
 ```
 
+### Relationship
 ```{r}
 g2<-salaryData %>% group_by(relationship,money) %>% summarise(cnt=n()) %>%mutate(perc=round(cnt/sum(cnt),4))%>%arrange(desc(perc))
   
 graph <- ggplot(g2[g2$money==" >50K",],aes(x=reorder(relationship,-perc),y=perc,colour=relationship))+
   geom_bar(aes(fill=relationship),show.legend=T,stat="identity")+
   ylab("% of Population Making Above 50K")+
-  xlab("Sex")+
+  xlab("Relationship Status")+
   ylim(0,1)
 graph
 ```
@@ -291,7 +291,7 @@ relation[relation$money==" >50K",]
 Graph <- ggplot(relation[relation$money==" >50K",],aes(x=reorder(groupedRelationship,-perc),y=perc,colour=groupedRelationship))+
   geom_bar(aes(fill=groupedRelationship),show.legend=T,stat="identity")+
   ylab("% of Population Making Above 50K")+
-  xlab("Marital Status")+
+  xlab("Relationship Status (Grouped)")+
   ylim(0,1)
 Graph
 ```
@@ -506,6 +506,7 @@ text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4/sample_size, names(c
 par(mfrow=c(2,2))
 plot(model)
 ```
+
 ROC Curve
 ```{r}
 #ROC Curve
